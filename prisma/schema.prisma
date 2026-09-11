@@ -1,0 +1,417 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Capability {
+  CREATOR
+  PHOTOGRAPHER
+  VIDEOGRAPHER
+  DESIGNER
+  DEVELOPER
+  FREELANCER
+  BUSINESS_OWNER
+  JOB_SEEKER
+  SERVICE_PROVIDER
+  SELLER
+}
+
+enum ExperienceLevel {
+  BEGINNER
+  ENTRY_LEVEL
+  MID_LEVEL
+  SENIOR
+  EXPERT
+}
+
+enum WorkPreference {
+  REMOTE
+  HYBRID
+  ONSITE
+  FLEXIBLE
+}
+
+enum PostType {
+  PORTFOLIO
+  UPDATE
+  OPPORTUNITY
+}
+
+enum CollaborationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  COMPLETED
+  CANCELLED
+}
+
+enum ListingType {
+  PRODUCT
+  PROPERTY
+  VEHICLE
+  SERVICE
+}
+
+enum JobType {
+  FULL_TIME
+  PART_TIME
+  CONTRACT
+  INTERNSHIP
+  FREELANCE
+  GIG
+}
+
+enum ApplicationStatus {
+  APPLIED
+  SHORTLISTED
+  REJECTED
+  HIRED
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+enum NotificationType {
+  LIKE
+  COMMENT
+  FOLLOW
+  FRIEND_REQUEST
+  COLLABORATION
+  MESSAGE
+  APPLICATION
+  REVIEW
+  SYSTEM
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  profile Profile?
+
+  posts    Post[]
+  likes    Like[]
+  comments Comment[]
+
+  followers Follow[] @relation("following")
+  following Follow[] @relation("follower")
+
+  sentCollaborations     Collaboration[] @relation("sender")
+  receivedCollaborations Collaboration[] @relation("receiver")
+
+  sentFriendRequests     FriendRequest[] @relation("friendRequestSender")
+  receivedFriendRequests FriendRequest[] @relation("friendRequestReceiver")
+
+  friendshipsA Friendship[] @relation("friendshipA")
+  friendshipsB Friendship[] @relation("friendshipB")
+
+  notifications Notification[]
+
+  messagesSent Message[] @relation("messageSender")
+
+  conversationParticipants ConversationParticipant[]
+
+  listings Listing[]
+
+  jobs         Job[]            @relation("jobOwner")
+  applications JobApplication[]
+
+  reviewsGiven    Review[] @relation("reviewer")
+  reviewsReceived Review[] @relation("reviewee")
+}
+
+model Profile {
+  id       String @id @default(uuid())
+  userId   String @unique
+  username String @unique
+
+  // Basic profile information
+  bio          String?
+  location     String?
+  avatarUrl    String?
+  website      String?
+  availability String?
+
+  // Professional identity
+  professionalTitle    String?
+  professionalHeadline String?
+  professionalBio      String?
+  experienceLevel      ExperienceLevel?
+  workPreference       WorkPreference?
+  isAvailableForWork   Boolean @default(false)
+
+  // Commercial information
+  expectedSalary String?
+  hourlyRate     Float?
+
+  // Professional documents and links
+  resumeUrl    String?
+  portfolioUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  capabilities ProfileCapability[]
+  skills       ProfileSkill[]
+  socialLinks  SocialLink[]
+}
+
+model ProfileCapability {
+  id         String     @id @default(uuid())
+  profileId  String
+  capability Capability
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, capability])
+}
+
+model ProfileSkill {
+  id        String @id @default(uuid())
+  profileId String
+  skill     String
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, skill])
+}
+
+model SocialLink {
+  id        String @id @default(uuid())
+  profileId String
+  platform  String
+  url       String
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+}
+
+model Post {
+  id        String   @id @default(uuid())
+  authorId  String
+  type      PostType @default(PORTFOLIO)
+  title     String?
+  caption   String?
+  mediaUrl  String?
+  category  String?
+  location  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  likes    Like[]
+  comments Comment[]
+
+  @@index([authorId, createdAt])
+  @@index([category, createdAt])
+}
+
+model Like {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, postId])
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  userId    String
+  postId    String
+  text      String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+model Follow {
+  id          String   @id @default(uuid())
+  followerId  String
+  followingId String
+  createdAt   DateTime @default(now())
+
+  follower  User @relation("follower", fields: [followerId], references: [id], onDelete: Cascade)
+  following User @relation("following", fields: [followingId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followingId])
+  @@index([followingId, createdAt])
+  @@index([followerId, createdAt])
+}
+
+model FriendRequest {
+  id         String              @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     FriendRequestStatus @default(PENDING)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  sender   User @relation("friendRequestSender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("friendRequestReceiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([receiverId, status])
+  @@index([senderId, status])
+}
+
+model Friendship {
+  id        String   @id @default(uuid())
+  userAId   String
+  userBId   String
+  createdAt DateTime @default(now())
+
+  userA User @relation("friendshipA", fields: [userAId], references: [id], onDelete: Cascade)
+  userB User @relation("friendshipB", fields: [userBId], references: [id], onDelete: Cascade)
+
+  @@unique([userAId, userBId])
+  @@index([userAId])
+  @@index([userBId])
+}
+
+model Collaboration {
+  id         String              @id @default(uuid())
+  senderId   String
+  receiverId String
+  message    String?
+  status     CollaborationStatus @default(PENDING)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  sender   User @relation("sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver User @relation("receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+
+  @@index([receiverId, status])
+  @@index([senderId, status])
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  message   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read, createdAt])
+}
+
+model Conversation {
+  id        String   @id @default(uuid())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages     Message[]
+  participants ConversationParticipant[]
+}
+
+model ConversationParticipant {
+  id             String   @id @default(uuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime @default(now())
+  lastReadAt     DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId, conversationId])
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  conversationId String
+  senderId       String
+  text           String
+  createdAt      DateTime @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("messageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model Listing {
+  id          String      @id @default(uuid())
+  ownerId     String
+  type        ListingType
+  title       String
+  description String?
+  price       Float?
+  location    String?
+  imageUrl    String?
+  category    String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([type, category, createdAt])
+}
+
+model Job {
+  id          String   @id @default(uuid())
+  ownerId     String
+  title       String
+  company     String?
+  description String
+  skills      String?
+  salary      String?
+  location    String?
+  type        JobType  @default(FULL_TIME)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  owner        User             @relation("jobOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  applications JobApplication[]
+
+  @@index([location, type, createdAt])
+}
+
+model JobApplication {
+  id          String            @id @default(uuid())
+  jobId       String
+  applicantId String
+  message     String?
+  status      ApplicationStatus @default(APPLIED)
+  createdAt   DateTime          @default(now())
+
+  job       Job  @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  applicant User @relation(fields: [applicantId], references: [id], onDelete: Cascade)
+
+  @@unique([jobId, applicantId])
+}
+
+model Review {
+  id         String   @id @default(uuid())
+  reviewerId String
+  revieweeId String
+  rating     Int
+  text       String?
+  createdAt  DateTime @default(now())
+
+  reviewer User @relation("reviewer", fields: [reviewerId], references: [id], onDelete: Cascade)
+  reviewee User @relation("reviewee", fields: [revieweeId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewerId, revieweeId])
+}

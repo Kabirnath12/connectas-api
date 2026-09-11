@@ -1,0 +1,1 @@
+import {Router} from "express";import {authenticate} from "../middleware/auth.middleware";import {createPost,getFeed,toggleLike,addComment} from "../controllers/post.controller";const r=Router();r.get("/feed",getFeed);r.post("/",authenticate,createPost);r.post("/:postId/like",authenticate,toggleLike);r.post("/:postId/comments",authenticate,addComment);export default r;

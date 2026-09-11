@@ -1,0 +1,13 @@
+import {Router} from "express";
+import {authenticate} from "../middleware/auth.middleware";
+import {listListings,createListing,listJobs,createJob,applyJob,search,follow,review} from "../controllers/platform.controller";
+const router=Router();
+router.get("/search",search);
+router.get("/listings",listListings);
+router.post("/listings",authenticate,createListing);
+router.get("/jobs",listJobs);
+router.post("/jobs",authenticate,createJob);
+router.post("/jobs/:jobId/apply",authenticate,applyJob);
+router.post("/follow",authenticate,follow);
+router.post("/reviews",authenticate,review);
+export default router;
