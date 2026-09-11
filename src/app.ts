@@ -19,20 +19,43 @@ dotenv.config();
 
 const app = express();
 
+/* ----------------------------- CORS ----------------------------- */
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "https://connectas.vercel.app",
+];
+
 app.use(
   cors({
-    origin: [
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
-    ],
+    origin: (origin, callback) => {
+      // Allow requests without an Origin header
+      // such as curl, Postman, server-to-server requests
+      if (!origin) {
+        return callback(null, true);
+      }
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      console.warn(`CORS blocked origin: ${origin}`);
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
+
+/* ----------------------------- Middleware ----------------------------- */
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-// Root health response
+/* ----------------------------- Health ----------------------------- */
+
 app.get("/", (_req, res) => {
   res.json({
     success: true,
@@ -40,15 +63,16 @@ app.get("/", (_req, res) => {
   });
 });
 
-// API health check
 app.get("/api/health", (_req, res) => {
   res.json({
     success: true,
-    message: "ConnectAS API healthy",
+    message: "ConnectAS API is healthy",
+    environment: process.env.NODE_ENV || "development",
   });
 });
 
-// Application routes
+/* ----------------------------- Routes ----------------------------- */
+
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/posts", postRoutes);
@@ -60,11 +84,10 @@ app.use("/api/messages", messageRoutes);
 app.use("/api/discover", discoverRoutes);
 app.use("/api/platform", platformRoutes);
 app.use("/api/recommendations", recommendationRoutes);
-
-// Jobs aggregator routes
 app.use("/api/jobs", jobsRoutes);
 
-// 404 handler
+/* ----------------------------- 404 Handler ----------------------------- */
+
 app.use((_req, res) => {
   res.status(404).json({
     success: false,
@@ -72,10 +95,11 @@ app.use((_req, res) => {
   });
 });
 
-// Global error handler
+/* ----------------------------- Global Error Handler ----------------------------- */
+
 app.use(
   (
-    error: any,
+    error: Error,
     _req: express.Request,
     res: express.Response,
     _next: express.NextFunction
@@ -84,7 +108,10 @@ app.use(
 
     res.status(500).json({
       success: false,
-      message: "Internal server error",
+      message:
+        process.env.NODE_ENV === "production"
+          ? "Internal server error"
+          : error.message || "Internal server error",
     });
   }
 );
