@@ -19,7 +19,9 @@ dotenv.config();
 
 const app = express();
 
-/* ----------------------------- CORS ----------------------------- */
+/* =========================================================
+   CORS CONFIGURATION
+========================================================= */
 
 const allowedOrigins = [
   "http://localhost:3000",
@@ -29,9 +31,9 @@ const allowedOrigins = [
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Allow requests without an Origin header
-      // such as curl, Postman, server-to-server requests
+    origin: function (origin, callback) {
+      // Allow requests without an origin
+      // Example: Postman, curl, server-to-server requests
       if (!origin) {
         return callback(null, true);
       }
@@ -40,38 +42,68 @@ app.use(
         return callback(null, true);
       }
 
-      console.warn(`CORS blocked origin: ${origin}`);
+      console.log("Blocked CORS origin:", origin);
       return callback(new Error("Not allowed by CORS"));
     },
+
     credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
+
+    methods: [
+      "GET",
+      "POST",
+      "PUT",
+      "PATCH",
+      "DELETE",
+      "OPTIONS",
+    ],
+
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "Accept",
+      "Origin",
+      "X-Requested-With",
+    ],
+
+    exposedHeaders: ["Content-Length"],
+
+    optionsSuccessStatus: 204,
   })
 );
 
-/* ----------------------------- Middleware ----------------------------- */
+// Explicitly handle preflight requests
+app.options("*", cors());
+
+/* =========================================================
+   BODY PARSERS
+========================================================= */
 
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
 
-/* ----------------------------- Health ----------------------------- */
+/* =========================================================
+   BASIC ROUTES
+========================================================= */
 
 app.get("/", (_req, res) => {
   res.json({
     success: true,
     message: "ConnectAS API is running",
+    platform: "ConnectAS",
   });
 });
 
 app.get("/api/health", (_req, res) => {
   res.json({
     success: true,
-    message: "ConnectAS API is healthy",
-    environment: process.env.NODE_ENV || "development",
+    message: "ConnectAS API healthy",
+    timestamp: new Date().toISOString(),
   });
 });
 
-/* ----------------------------- Routes ----------------------------- */
+/* =========================================================
+   API ROUTES
+========================================================= */
 
 app.use("/api/auth", authRoutes);
 app.use("/api/profile", profileRoutes);
@@ -86,7 +118,9 @@ app.use("/api/platform", platformRoutes);
 app.use("/api/recommendations", recommendationRoutes);
 app.use("/api/jobs", jobsRoutes);
 
-/* ----------------------------- 404 Handler ----------------------------- */
+/* =========================================================
+   404 HANDLER
+========================================================= */
 
 app.use((_req, res) => {
   res.status(404).json({
@@ -95,23 +129,29 @@ app.use((_req, res) => {
   });
 });
 
-/* ----------------------------- Global Error Handler ----------------------------- */
+/* =========================================================
+   GLOBAL ERROR HANDLER
+========================================================= */
 
 app.use(
   (
-    error: Error,
+    error: any,
     _req: express.Request,
     res: express.Response,
     _next: express.NextFunction
   ) => {
     console.error("Global API error:", error);
 
-    res.status(500).json({
+    if (error.message === "Not allowed by CORS") {
+      return res.status(403).json({
+        success: false,
+        message: "CORS origin not allowed",
+      });
+    }
+
+    return res.status(500).json({
       success: false,
-      message:
-        process.env.NODE_ENV === "production"
-          ? "Internal server error"
-          : error.message || "Internal server error",
+      message: "Internal server error",
     });
   }
 );
